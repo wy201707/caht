@@ -1,0 +1,29 @@
+{
+    "type": "FeatureCollection",
+    "features": [    
+        {
+            "type": "Feature",
+            "properties": {
+                "Current": -1,
+                "CurCredit": 0,
+                "CurDirection": 0,
+                "WindVelocity": -1,
+                "WindCredit": 0,
+                "WindDir": 361,
+                "WindFetch": 0,
+                "FlagMatrixIndex": 511,
+                "WaveHs": -1,
+                "WaveCredit": 0,
+                "WaveDir": 361
+            },
+            "geometry": {
+                "type": "Point",
+                "show_on_map": "true",
+                "coordinates": [
+                    116.8,
+                    22.95
+                ]
+            }
+        }
+    ]
+}

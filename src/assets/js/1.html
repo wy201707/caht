@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <!--1 <script type="text/javascript" src="a.js"></script> //方法一 -->
+        <script type="text/javascript" src="require.js"></script>
+        <script type="text/javascript">
+            //2 require(['a']); 对于a.js
+            /*3
+            require(['a_1'], function () {
+                alert('define定义模块，require加载模块，加载完毕！执行回调函数');
+                //先执行a_1 中的函数，在执行回调函数（这回调函数是用来处理加载完毕后的逻辑）
+            });*/
+            require.config({
+                paths: {
+                    jquery: ['http://libs.baidu.com/jquery/2.0.3/jquery', 'js/jquery'],
+                    a: 'a_1',
+                    underscore:'underscore-min'
+                },
+            });
+            //4 require(['jquery', 'a'], function ($) {
+            //     $(function () {
+            //         alert('load finished');
+            //     });
+            // });
+            require(['jquery', 'underscore'], function ($, _) {
+                $(function () {
+                    _.each([1, 2, 3], alert);  //实现效果，一次弹出1,2,3的alert窗口
+                });
+            });
+        </script>
+    </head>
+    <br>
+        <span>1 body不是应该加载不出来吗 确实，采用方法一需要点击alert（a.js中调用了函数）的确定才能显示该行文字</span>
+        </br>
+        <span>2 使用require.js就可以异步显示出来</span>
+        </br>
+        <span>3 a_1 define定义模块，require加载模块，并执行回调函数（先引入模块文件中调用的函数，加载完毕，再执行）</span>
+    </body>
+</html>

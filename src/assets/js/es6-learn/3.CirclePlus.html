@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+    <head>
+       
+        <script type="text/javascript" src="circleplus.js"></script>
+        <script type="text/javascript">
+        //    import {circleplus} from './circleplus'
+           import('./circleplus').then(circleplus=>{
+            if(circleplus!=null){
+                console.log(circleplus.e)
+            }else{
+                console.log('没加载成功')
+            }
+            
+           })
+           
+           var rinput=document.getElementById('radius').value
+           console.log('r=',rinput)
+           
+        </script>
+    </head>
+    <br>
+        <span>类的继承，circleplus继承于circle</span>
+        <form >
+            半径<input id="radius" value="请输入半径"></input>
+            <input type="button" value="获取"></input>
+        </form>
+        
+        </br>
+    </body>
+</html>

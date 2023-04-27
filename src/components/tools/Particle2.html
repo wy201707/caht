@@ -1,0 +1,1207 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+    <head>
+        <title>风场粒子-运动</title>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+        <script src="https://cdn.staticfile.org/vue/2.4.2/vue.min.js"></script>
+        <!-- 、、、 引入样式 
+        <link rel="stylesheet" href="https://unpkg.com/element-ui/lib/theme-chalk/index.css" />
+        引入组件库 
+        <script src="https://unpkg.com/element-ui/lib/index.js"></script> -->
+        <script type="text/javascript" src="../../assets/js/require.js"></script>
+        <style>
+            .TimeInfoComponent-pannel {
+                position: absolute;
+                top: 20px;
+                left: 15px;
+                width: 280px;
+                height: 380px;
+                background-color: #fff;
+            }
+            .TimeInfoComponent-pannel-Test {
+                position: absolute;
+                top: 120px;
+                left: 150px;
+                width: 280px;
+                height: 580px;
+                background-color: #fff;
+            }
+            .TimeInfoComponent-header {
+                width: 100%;
+                height: 35px;
+                border-bottom: 1px solid #e4e7ed;
+                padding: 0 5px;
+                box-sizing: border-box;
+                display: flex;
+                justify-content: space-between;
+            }
+            .TimeInfoComponent-header > span {
+                line-height: 35px;
+                font-size: 16px;
+                font-weight: 600;
+            }
+
+            .TimeInfo-span-label {
+                text-align: right;
+                vertical-align: middle;
+                font-size: 14px;
+                color: #606266;
+                line-height: 28px;
+                padding: 0 12px 0 12px;
+                box-sizing: border-box;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="TimeInfoComponent-pannel-Tset">
+            <div class="TimeInfoComponent-header">
+                <span>{{ NowTimeStr }}时刻风场显示</span>
+                <i class="el-icon-close" @click="closeTimeInfoPannel"></i>
+            </div>
+
+            <div>
+                在这里！！！！动画面板在这里<br />
+                <canvas id="windycanvas"></canvas>
+                <br />
+                <span class="TimeInfo-select-label">展示信息：</span>
+            </div>
+        </div>
+        <!-- <script type="module" src="../config/index.js"></script>
+        <script type="module" src="./CanvasParticle.js"></script> -->
+
+        <script>
+            // import { loadModules } from 'esri-loader';
+            // import config from './config';
+            // import CanvasWindField from './tools/CanvasWindField好像用不到';
+            // import CanvasParticle from './CanvasParticle';
+            // import CanvasWindy from './tools/CanvasWindy';
+
+            new Vue({
+                el: '#app',
+                data() {
+                    return {
+                        ParticleArgObj: {
+                            DataType: 1,
+                            interval: 10,
+                        },
+                        NowTimeStr: '2021-09-12-00-10',
+                        // '2021-09-12-00-10',
+                        // Field: {
+                        //     // WindVelocity: [],
+                        //     // WindDir: [],
+                        //     Wind: [],
+                        //     stepX: [],
+                        //     stepY: [],
+                        // },
+                        FieldData: [],
+                        Pannelcfg: {
+                            west: config.TimeRangeConfig.west,
+                            east: config.TimeRangeConfig.east,
+                            south: config.TimeRangeConfig.south,
+                            north: config.TimeRangeConfig.north,
+                            rows: config.TimeRangeConfig.rows,
+                            cols: config.TimeRangeConfig.cols, //经度
+                            dx: config.TimeRangeConfig.dx,
+                            dy: config.TimeRangeConfig.dy,
+                        },
+
+                        extent: [],
+                        canvasContext: null, //params.canvas.getContext('2d'), //canvas上下文
+                        canvasWidth: 300, //画板宽度
+                        canvasHeight: 220, //画板高度
+                        speedRate: 0.15, //风前进速率，可以用该数值控制线流动的快慢，值越大，越快  #我的数据应该是读出的每个点不一样  不是哦，这是每帧划线的速度，风速快的话，自然下一帧走的就远一下
+                        // particlesNumber: 800, //初始粒子总数，根据实际需要进行调节
+                        // maxAge: 120, //每个粒子的最大生存周期
+                        minAge: 10,
+                        frameTime: 300, //每秒刷新次数，因为requestAnimationFrame固定每秒60次的渲染，所以如果不想这么快，就把该数值调小一些
+                        color: '#14208e', //线颜色，提供几个示例颜色['#14208e','#3ac32b','#e0761a']
+                        lineWidth: 1, //线宽度
+                        //内置参数
+                        // this.generateParticleExtent.push(((this.extent[0]+180)-west)/(east-west)*(nx-2));//左
+                        // this.generateParticleExtent.push(((this.extent[1]+180)-west)/(east-west)*(nx-2));//右
+                        // this.generateParticleExtent.push((north-(this.extent[2]))/(north-south)*(ny-2));//下
+                        // this.generateParticleExtent.push((north-(this.extent[3]))/(north-south)*(ny-2));//上
+                        // generateParticleExtent: [
+                        //     (config.TimeRangeConfig.west / (config.TimeRangeConfig.east - config.TimeRangeConfig.west)) * (53 - 2),
+                        //     (config.TimeRangeConfig.east / (config.TimeRangeConfig.east - config.TimeRangeConfig.west)) * (53 - 2),
+                        //     (config.TimeRangeConfig.north / (config.TimeRangeConfig.north - config.TimeRangeConfig.south)) *
+                        //         (53 - 2),
+                        //     (config.TimeRangeConfig.south / (config.TimeRangeConfig.north - config.TimeRangeConfig.south)) *
+                        //         (53 - 2),
+                        // ],
+                        generateParticleExtent: [
+                            config.TimeRangeConfig.west,
+                            config.TimeRangeConfig.east,
+                            config.TimeRangeConfig.north,
+                            config.TimeRangeConfig.south,
+                        ],
+                        //根据风场绘制时的extent，计算粒子随机生成时的范围（指的是棋盘网格的行列范围）
+                        //咱粒子是扫描得到的
+
+                        particles: [],
+                        animateFrame: null, //requestAnimationFrame事件句柄，用来清除操作
+
+                        publicPath: process.env.BASE_URL,
+                    };
+                },
+                computed: {
+                    NowTime() {
+                        this.NowTimeStr = this.NowTimeStr.replace('-', '/')
+                            .replace('-', '/')
+                            .replace('-', '  ')
+                            .replace('-', ':');
+                        return this.NowTimeStr;
+                    },
+                },
+                created() {
+                    console.log('加油！');
+                },
+                mounted() {
+                    // const sliderValue = document.getElementById('sliderValue');
+                    const canvas = document.querySelector('#windycanvas');
+                    this.canvasContext = canvas.getContext('2d');
+                    console.log('到底拿没拿到面板', this.canvasContext);
+                },
+                methods: {
+                    initWindData(path) {
+                        //这个估计在created里面，当组件传入参数（组件间通信）预加载数据
+                        // path = '/GeoData2021-09-12-00-10.json';
+                        // this.FieldData = new Array(this.rows).fill().map(() => new Array(this.cols).fill([0, 0, 0]));
+                    },
+
+                    onSubmit() {
+                        console.log('on submit!');
+                        var path = 'http://localhost:80/vuegis/static/data/2021-09-12/GeoData2021-09-12-00-10.json';
+                        var self = this;
+                        var start = new Date();
+                        this.$axios
+                            .get(path)
+                            .then(function (res) {
+                                return res.data.features;
+                            })
+                            .then((data) => {
+                                // //+type选择 决定field里面放什么
+                                // console.log(data.length);
+                                // self.FieldData = new Array(this.Pannelcfg.cols)
+                                //     .fill('')
+                                //     .map((elm) => new Array(this.Pannelcfg.rows).fill([]));
+                                self.FieldData = new Array(this.Pannelcfg.cols);
+                                for (let i = 0; i < this.Pannelcfg.cols; i++) {
+                                    self.FieldData[i] = new Array(this.Pannelcfg.rows);
+                                    for (let j = 0; j < this.Pannelcfg.rows; j++) {
+                                        self.FieldData[i][j] = [0, 0, 0];
+                                    }
+                                }
+                                console.log(
+                                    'field.Wind大小应该是57(cols经度)*53(rows)*3:',
+                                    self.FieldData.length,
+                                    '*',
+                                    self.FieldData[0].length,
+                                    '*',
+                                    self.FieldData[0][0].length,
+                                );
+                                var a = 0;
+
+                                // 初始化数据Field.Wind，并创建风场粒子
+
+                                data.forEach(function (point) {
+                                    let x = point.geometry.coordinates[0]; //经度
+                                    let y = point.geometry.coordinates[1]; //纬度
+                                    let xidx = Math.floor((x - self.Pannelcfg.west) / self.Pannelcfg.dx);
+                                    let yidx = Math.floor((y - self.Pannelcfg.north) / self.Pannelcfg.dy);
+                                    let dir = point.properties.WindDir;
+                                    let windv = point.properties.WindVelocity;
+                                    let windx, windy;
+
+                                    if ((dir > 360) | (windv < 0)) {
+                                        windv = 0;
+                                        windx = 0;
+                                        windy = 0;
+                                    } else {
+                                        windx = Math.cos((dir * Math.PI) / 180) * point.properties.WindVelocity; //经度
+                                        windy = Math.sin((dir * Math.PI) / 180) * point.properties.WindVelocity;
+
+                                        // // console.log(self.FieldData[xidx][yidx]);
+                                        // self.FieldData[xidx][yidx].push([windx, windy, windv]);
+                                        // console.log('for each', a, xidx, yidx, dir, '°,', '[', windv, windx, windy, ']');
+                                    }
+                                    self.FieldData[xidx][yidx][0] = windx;
+                                    self.FieldData[xidx][yidx][1] = windy;
+                                    self.FieldData[xidx][yidx][2] = windv;
+
+                                    //应该加一个线性插值
+                                    a = a + 1;
+                                });
+                                // console.log(self.FieldData);
+                                // debugger;
+                                let xidx, yidx;
+                                let wdata = [];
+                                let pnum = 0;
+                                let p = null;
+                                for (xidx = 0; xidx < this.Pannelcfg.cols; xidx++) {
+                                    for (yidx = 0; yidx < this.Pannelcfg.rows; yidx++) {
+                                        wdata = self.FieldData[xidx][yidx];
+
+                                        if (wdata[2] > 0) {
+                                            // console.log(
+                                            //     '风速不为0 self.FieldData[',
+                                            //     xidx,
+                                            //     '][',
+                                            //     yidx,
+                                            //     ']=',
+                                            //     self.FieldData[xidx][yidx],
+                                            // );
+                                            pnum = pnum + 1;
+
+                                            p = new CanvasParticle({
+                                                x: xidx,
+                                                y: yidx,
+                                                tx: xidx + wdata[0] * self.speedRate, //经度 ,当前坐标+下一帧x方向走的距离==下一帧的x坐标
+                                                ty: yidx + wdata[1] * self.speedRate,
+                                                age: Math.round(wdata[2] * self.minAge),
+                                                speed: wdata[2],
+                                            });
+                                            // console.log('风速不为0的粒子：', pnum, xidx, yidx);
+                                            self.particles.push(p);
+
+                                            if ((xidx == 31) & (yidx >= 25) & (yidx < 30)) {
+                                                console.log(
+                                                    '第一场粒子 位置[',
+                                                    xidx,
+                                                    '][',
+                                                    yidx,
+                                                    ']:',
+                                                    p.x,
+                                                    p.y,
+                                                    p.tx,
+                                                    p.ty,
+                                                    p.age,
+                                                    p.speed,
+                                                );
+                                            }
+                                        }
+
+                                        // 第一场粒子： 30 30 53 2.654928655597212
+                                    }
+                                }
+
+                                //nicktick!!! animate等等
+                                // console.log('this.particles', this.particles);
+                                // 、、这里可能要nicktick
+
+                                self.$nextTick(() => {
+                                    self.animate();
+                                    var then = Date.now();
+                                    (function frame() {
+                                        self.animateFrame = requestAnimationFrame(frame);
+                                        var now = Date.now();
+                                        var delta = now - then;
+                                        if (delta > self.frameTime) {
+                                            then = now - (delta % self.frameTime);
+                                            self.animate();
+                                            // debugger;
+                                        }
+                                    })();
+                                });
+
+                                // console.log('风速', self.FieldData); //这里是没问题的，self可以拿到数据
+                            })
+                            .catch((error) => {
+                                console.log(error);
+                            });
+                        var end = new Date();
+                        console.log('读数据\显示数据用时：', end - start);
+                        // console.log('ajax完了', this.FieldData); //这里是没问题的，self可以拿到数据
+                        // console.log(
+                        //     'field.Wind大小应该是57(cols经度)*53(rows)*3:',
+                        //     self.FieldData.length,
+                        //     '*',
+                        //     self.FieldData[0].length,
+                        //     '*',
+                        //     self.FieldData[0][0].length,
+                        // );
+                    },
+                    animate() {
+                        var self = this,
+                            field = self.FieldData;
+                        var nextX = null,
+                            nextY = null,
+                            // xy = null,
+                            uv = [];
+
+                        // console.log(field);
+                        for (let i = 0; i < self.particles.length; i++) {
+                            var p = this.particles[i];
+                            if (p.age <= 0) {
+                                self.particles.push(self.randomParticle(self.particles[i]));
+                            } else {
+                                var x = p.x,
+                                    y = p.y,
+                                    tx = p.tx,
+                                    ty = p.ty;
+
+                                // xy=self.getIn(x,y)  //返回计算得到的xidx,yidx
+
+                                if ((x == 30) & (y == 30)) {
+                                    console.log('30,30处的粒子animate', p);
+                                }
+
+                                // 这里！！！
+                                if (!self.isInBound(tx, ty)) {
+                                    p.age = 0;
+                                } else {
+                                    // 跳到下一次风到的格子
+                                    //我的xy记录的是windx,和windy，不是xidx,yidx
+                                    // console.log('跳到下一次风到的格子', x, y, Math.floor(x), Math.floor(y));
+
+                                    //又没理清，话说x,y不是记录坐标的吗？？？
+                                    //再说，tx,ty开始就是null，现在赋给x,y让他们往哪里走？？？？第一次移动的问题没想明白
+
+                                    // uv = field[Math.floor(x)][Math.floor(y)];
+                                    uv = self.getIn(tx, ty); //[x,y,v]
+                                    if ((x == 31) & (y >= 25) & (y < 30)) {
+                                        console.log(x, y, '-->', tx, ty, '且[', tx, ty, ']', '的下一次移动方向uv', uv);
+                                    }
+
+                                    nextX = tx + self.speedRate * uv[0];
+                                    nextY = ty + self.speedRate * uv[1];
+                                    p.x = tx;
+                                    p.y = ty;
+                                    p.tx = nextX;
+                                    p.ty = nextY;
+                                    p.age--;
+                                }
+                            }
+                        }
+
+                        if (self.particles.length <= 0) {
+                            console.log('粒子总数', self.particles.length);
+                            self.removeLines();
+                        }
+
+                        self._drawLines();
+                    },
+                    getFileNameformData(date) {
+                        let dateStr =
+                            date.getFullYear() +
+                            '-' +
+                            ('0' + (date.getMonth() + 1)).slice(-2) +
+                            '-' +
+                            ('0' + date.getDate()).slice(-2) +
+                            '-' +
+                            ('0' + date.getHours()).slice(-2) +
+                            '-' +
+                            ('0' + date.getMinutes()).slice(-2);
+                        // con-sole.log(dateStr);
+                        return dateStr;
+                    },
+                    StopAnimation() {
+                        console.log('stop top', this.ParticleArgObj);
+
+                        if (!this.animation) {
+                            return;
+                        }
+
+                        this.animation.remove();
+                        this.animation = null;
+                    },
+
+                    //组件间通信（动画组件传递时间字符串、选项；或者自己面板传入参数）：控制预加载数据类型，控制渲染类型
+                    choiceType() {
+                        // console.log('choiceType', this.ParticleArgObj.DataType);
+                        switch (this.ParticleArgObj.DataType) {
+                            case 1:
+                                // 这里return  this.initWindData()   放在this.field
+                                // 决定初始加载和最后渲染样式!!!   波浪（这个再说，不行就粒子动画）||流、风
+                                this.FiledRatation = 'WindDir';
+                                this.FiledColor = 'WindVelocity';
+
+                                this.steps = [
+                                    // { value: -1, color: '#b0e0e6' },
+                                    { value: 0, color: '#87cefa', lable: '<0' },
+                                    { value: 1.6, color: '#2b83ba', lable: '1.6' },
+                                    { value: 5.5, color: '#abdda4', lable: '5.5' },
+                                    { value: 8.0, color: '#ffffbf', lable: '8.0' },
+                                    { value: 13.9, color: '#fdae61', lable: '13.9' },
+                                    { value: 20.8, color: '#d7191c', lable: '20.8' },
+                                    { value: 30, color: '#ffffff', lable: '30' },
+                                ];
+                                break;
+                            case 2:
+                                // 这里return  this.initWaveData() 放在this.field
+                                this.FiledRatation = 'WaveDir';
+                                this.FiledColor = 'WaveHs';
+                                this.steps = [
+                                    // { value: -1, color: '#b0e0e6' },
+                                    { value: 0, color: '#87cefa', lable: '<0' },
+                                    { value: 0.4, color: '#2b83ba', lable: '0.4' },
+                                    { value: 0.8, color: '#abdda4', lable: '0.8' },
+                                    { value: 1.5, color: '#ffffbf', lable: '1.5' },
+                                    { value: 2.3, color: '#fdae61', lable: '2.3' },
+                                    { value: 3.0, color: '#d7191c', lable: '3.0' },
+                                    { value: 4.0, color: '#ffffff', lable: '>4.0' },
+                                ];
+                                break;
+                            case 3:
+                                this.FiledRatation = 'CurDirection';
+                                this.FiledColor = 'Current';
+                                this.steps = [
+                                    { value: 0, color: '#87cefa', lable: '<0' },
+                                    { value: 20, color: '#2b83ba', lable: '20' },
+                                    { value: 40, color: '#abdda4', lable: '40' },
+                                    { value: 60, color: '#ffffbf', lable: '60' },
+                                    { value: 80, color: '#fdae61', lable: '80' },
+                                    { value: 95, color: '#d7191c', lable: '95' },
+                                    { value: 110, color: '#ffffff', lable: '>110' },
+                                ];
+                                break;
+                            default:
+                                console.log('单选项返回值出错');
+                        }
+                    },
+                    fRandomByfloat: function (under, over) {
+                        return under + Math.random() * (over - under);
+                    },
+                    randomParticle(particle) {
+                        // 从检测中心位置向四周随机找位置，直到找到不为0的点（最多找 1542 次） 似乎太多次了
+                        var safe = 0; //30,
+                        var x, y;
+                        // var x = 0 //,Math.floor(this.Pannelcfg.cols / 2);
+                        // var y = 0//Math.floor(this.Pannelcfg.rows / 2);
+
+                        //!!!我的x,y row clos是不是对应错了
+                        // 随机产生一个粒子看能不能动起来（下一步的格子里有风）
+                        // let _x, _y;
+                        /*  
+                        do {
+                            x = Math.round(Math.floor(Math.random() * bounds.width) + bounds.x); //这里！
+                            y = Math.round(Math.floor(Math.random() * bounds.height) + bounds.y);
+                        } while (field(x, y)[2] === null && safetyNet++ < 30);
+            */
+                        do {
+                            // x =
+                            //     this.generateParticleExtent.length == 0
+                            //         ? Math.random(0, this.Pannelcfg.cols - 2)
+                            //         : Math.random(this.generateParticleExtent[0], this.generateParticleExtent[1]);
+                            // y =
+                            //     this.generateParticleExtent.length == 0
+                            //         ? Math.random(0, this.Pannelcfg.rows - 2)
+                            //         : Math.random(this.generateParticleExtent[2], this.generateParticleExtent[3]);
+                            //!! x = Math.round(Math.floor(Math.random() * bounds.width) + bounds.x); //这里！
+                            //!! y = Math.round(Math.floor(Math.random() * bounds.height) + bounds.y);
+                            x = Math.floor(this.fRandomByfloat(0, this.Pannelcfg.cols / 2 - 2));
+                            y = Math.floor(this.fRandomByfloat(0, this.Pannelcfg.rows / 2 - 2));
+                            // _x = this.fRandomByfloat(0, this.Pannelcfg.cols / 2 - 2);
+                            // _y = this.fRandomByfloat(0, this.Pannelcfg.rows / 2 - 2);
+                            // x = Math.floor(x + _x);
+                            // y = Math.floor(y + _y);
+                            // console.log('randomParticle x,y,data[x][y]', x, y, this.getIn(x, y)[2]);
+                            // } while (this.FieldData[x][y][2] <= 0 && safe++ < this.Pannelcfg.rows * this.Pannelcfg.cols);
+                        } while (this.getIn(x, y)[2] <= 0);
+                        //最多找一百次 找到棋盘不为0的风速格子
+                        console.log('终于找到不为风速0的粒子 x,y', x, y);
+                        // debugger;
+                        // var fdata = this.FieldData[x][y];
+                        // var uv = this._calcXY(fdata[0], fdata[1]); //根据风速和角度得到的[x,y,v]
+                        // var nextX = x + this.speedRate * uv[0];
+                        // var nextY = y + this.speedRate * uv[1];
+                        // x: xidx,
+                        //                         y: yidx,
+                        //                         tx: xidx + wdata[0] * self.speedRate, //经度 ,当前坐标+下一帧x方向走的距离==下一帧的x坐标
+                        //                         ty: yidx + wdata[1] * self.speedRate,
+                        //                         age: Math.round(wdata[2] * self.minAge),
+                        //                         speed: wdata[2],
+
+                        var uv = this.FieldData[x][y];
+                        particle.x = x;
+                        particle.y = y;
+                        var nextX = x + this.speedRate * uv[0];
+                        var nextY = y + this.speedRate * uv[1];
+                        particle.tx = nextX;
+                        particle.ty = nextY;
+                        particle.speed = uv[2];
+                        particle.age = Math.round(uv[2] * this.minAge);
+                        // particle.speed = uv[2];
+                        // particle.age = Math.round(uv[2] * this.minAge);
+                        console.log('随机生成的粒子', particle);
+                        //每一次生成都不一样   #！我的生成时间应该怎么办呢？ 速度越大，存活时间越长
+                        // this.particles.push()
+                        return particle;
+                    },
+                    // _calcXY(radius, theta) {
+                    //     return [radius * Math.cos(theta), radius * Math.sin(theta), radius];
+                    // },
+                    _calcUV: function (u, v) {
+                        return [+u, +v, Math.sqrt(u * u + v * v)];
+                    },
+                    // //双线性插值计算给定节点的速度
+                    _bilinearInterpolation(x, y, g00, g10, g01, g11) {
+                        var rx = 1 - x;
+                        var ry = 1 - y;
+                        var a = rx * ry,
+                            b = x * ry,
+                            c = rx * y,
+                            d = x * y;
+                        var u = g00[0] * a + g10[0] * b + g01[0] * c + g11[0] * d;
+                        var v = g00[1] * a + g10[1] * b + g01[1] * c + g11[1] * d;
+                        console.log('线性插值计算得到最近的坐标点：', u, v);
+                        return this._calcUV(u, v);
+                    },
+                    getIn(x, y) {
+                        var x0 = Math.floor(x),
+                            y0 = Math.floor(y),
+                            x1,
+                            y1;
+                        if (x0 === x && y0 === y) {
+                            // console.log('对应的网格(x0,y0)', x0, y0);
+                            return this.FieldData[x][y];
+                        }
+                        x1 = x0 + 1;
+                        y1 = y0 + 1;
+                        // console.log('对应的网格(x1,y1)', x1, y1);
+                        return this.FieldData[Math.floor(x1)][Math.floor(y1)];
+
+                        //这个线性双插值是为了计算风速[windx,windy,windv]的，但是现在出错了，所有结果(u,v)都是：29.99340573805987 41.45665111615797
+                        // var g00 = this.getIn(x0, y0),
+                        //     g10 = this.getIn(x1, y0),
+                        //     g01 = this.getIn(x0, y1),
+                        //     g11 = this.getIn(x1, y1);
+                        // return this._bilinearInterpolation(x - x0, y - y0, g00, g10, g01, g11);
+                    },
+                    isInBound(x, y) {
+                        if (x >= 0 && x < this.Pannelcfg.cols - 1 && y >= 0 && y < this.Pannelcfg.rows - 1) return true;
+                        return false;
+                    },
+                    removeLines() {
+                        window.cancelAnimationFrame(this.animateFrame);
+                    },
+                    //根据粒子当前所处的位置(棋盘网格位置)，得到canvas画板中的位置，以便画图
+                    _map(x, y) {
+                        var fieldWidth = this.Pannelcfg.cols,
+                            fieldHeight = this.Pannelcfg.rows,
+                            newArr = [0, 0];
+
+                        var noextent = this.generateParticleExtent.length == 0;
+                        newArr[0] = Math.floor((x / fieldWidth) * this.canvasWidth);
+                        newArr[1] = Math.floor((y / fieldHeight) * this.canvasHeight);
+
+                        // newArr[0] = Math.floor(
+                        //     ((noextent ? x : x - this.generateParticleExtent[0]) /
+                        //         (noextent ? fieldWidth : this.generateParticleExtent[1] - this.generateParticleExtent[0])) *
+                        //         this.canvasWidth,
+                        // );
+                        // newArr[1] = Math.floor(
+                        //     ((noextent ? y : y - this.generateParticleExtent[2]) /
+                        //         (noextent ? fieldHeight : this.generateParticleExtent[2] - this.generateParticleExtent[3])) *
+                        //         this.canvasHeight,
+                        // );
+                        // newArr[0] = Math.floor(
+                        //     ((x - this.generateParticleExtent[0]) /
+                        //         (this.generateParticleExtent[1] - this.generateParticleExtent[0])) *
+                        //         this.canvasWidth,
+                        // );
+                        // newArr[1] = Math.floor(
+                        //     ((y - this.generateParticleExtent[2]) /
+                        //         (this.generateParticleExtent[2] - this.generateParticleExtent[3])) *
+                        //         this.canvasHeight,
+                        // );
+                        // console.log('在图中的点', newArr);
+                        return newArr;
+                    },
+                    _drawLines() {
+                        var self = this;
+                        var particles = this.particles;
+
+                        this.canvasContext.lineWidth = self.lineWidth;
+                        //后绘制的图形和前绘制的图形如果发生遮挡的话，只显示后绘制的图形跟前一个绘制的图形重合的前绘制的图形部分，示例：https://www.w3school.com.cn/tiy/t.asp?f=html5_canvas_globalcompop_all
+                        this.canvasContext.globalCompositeOperation = 'destination-in';
+                        this.canvasContext.fillRect(0, 0, this.canvasWidth, this.canvasHeight);
+                        this.canvasContext.globalCompositeOperation = 'lighter'; //重叠部分的颜色会被重新计算
+                        this.canvasContext.globalAlpha = 0.9;
+
+                        this.canvasContext.beginPath();
+                        this.canvasContext.strokeStyle = this.color;
+                        // console.log('当前面板附近', this.canvasContext);
+                        // console.log('面板绘制区域', this.generateParticleExtent);
+                        // console.log(particles);
+                        particles.forEach(function (particle) {
+                            // debugger;
+                            var movetopos = self._map(particle.x, particle.y);
+                            var linetopos = self._map(particle.tx, particle.ty);
+                            // console.log(movetopos, '--->', linetopos);
+                            self.canvasContext.moveTo(movetopos[0], movetopos[1]);
+                            self.canvasContext.lineTo(linetopos[0], linetopos[1]);
+                        });
+                        // console.log('线呢？原来是和背景色设置成一样了。。。');
+                        this.canvasContext.stroke();
+                    },
+                },
+            });
+
+            // export default {
+            // name: 'OneTime',
+            // components: {},
+            //    mounted() {
+            //     this.getWindData();
+            // },
+            // data() {
+            //     return {
+            //         ParticleArgObj: {
+            //             DataType: 1,
+            //             interval: 10,
+            //         },
+            //         NowTimeStr: '2021-09-12-00-10',
+            //         // '2021-09-12-00-10',
+            //         // Field: {
+            //         //     // WindVelocity: [],
+            //         //     // WindDir: [],
+            //         //     Wind: [],
+            //         //     stepX: [],
+            //         //     stepY: [],
+            //         // },
+            //         FieldData: [],
+            //         Pannelcfg: {
+            //             west: config.TimeRangeConfig.west,
+            //             east: config.TimeRangeConfig.east,
+            //             south: config.TimeRangeConfig.south,
+            //             north: config.TimeRangeConfig.north,
+            //             rows: config.TimeRangeConfig.rows,
+            //             cols: config.TimeRangeConfig.cols, //经度
+            //             dx: config.TimeRangeConfig.dx,
+            //             dy: config.TimeRangeConfig.dy,
+            //         },
+
+            //         extent: [],
+            //         canvasContext: null, //params.canvas.getContext('2d'), //canvas上下文
+            //         canvasWidth: 300, //画板宽度
+            //         canvasHeight: 220, //画板高度
+            //         speedRate: 0.15, //风前进速率，可以用该数值控制线流动的快慢，值越大，越快  #我的数据应该是读出的每个点不一样  不是哦，这是每帧划线的速度，风速快的话，自然下一帧走的就远一下
+            //         // particlesNumber: 800, //初始粒子总数，根据实际需要进行调节
+            //         // maxAge: 120, //每个粒子的最大生存周期
+            //         minAge: 10,
+            //         frameTime: 300, //每秒刷新次数，因为requestAnimationFrame固定每秒60次的渲染，所以如果不想这么快，就把该数值调小一些
+            //         color: '#14208e', //线颜色，提供几个示例颜色['#14208e','#3ac32b','#e0761a']
+            //         lineWidth: 1, //线宽度
+            //         //内置参数
+            //         // this.generateParticleExtent.push(((this.extent[0]+180)-west)/(east-west)*(nx-2));//左
+            //         // this.generateParticleExtent.push(((this.extent[1]+180)-west)/(east-west)*(nx-2));//右
+            //         // this.generateParticleExtent.push((north-(this.extent[2]))/(north-south)*(ny-2));//下
+            //         // this.generateParticleExtent.push((north-(this.extent[3]))/(north-south)*(ny-2));//上
+            //         // generateParticleExtent: [
+            //         //     (config.TimeRangeConfig.west / (config.TimeRangeConfig.east - config.TimeRangeConfig.west)) * (53 - 2),
+            //         //     (config.TimeRangeConfig.east / (config.TimeRangeConfig.east - config.TimeRangeConfig.west)) * (53 - 2),
+            //         //     (config.TimeRangeConfig.north / (config.TimeRangeConfig.north - config.TimeRangeConfig.south)) *
+            //         //         (53 - 2),
+            //         //     (config.TimeRangeConfig.south / (config.TimeRangeConfig.north - config.TimeRangeConfig.south)) *
+            //         //         (53 - 2),
+            //         // ],
+            //         generateParticleExtent: [
+            //             config.TimeRangeConfig.west,
+            //             config.TimeRangeConfig.east,
+            //             config.TimeRangeConfig.north,
+            //             config.TimeRangeConfig.south,
+            //         ],
+            //         //根据风场绘制时的extent，计算粒子随机生成时的范围（指的是棋盘网格的行列范围）
+            //         //咱粒子是扫描得到的
+
+            //         particles: [],
+            //         animateFrame: null, //requestAnimationFrame事件句柄，用来清除操作
+
+            //         publicPath: process.env.BASE_URL,
+            //     };
+            // },
+            // computed: {
+            //     NowTime() {
+            //         this.NowTimeStr = this.NowTimeStr.replace('-', '/')
+            //             .replace('-', '/')
+            //             .replace('-', '  ')
+            //             .replace('-', ':');
+            //         return this.NowTimeStr;
+            //     },
+            // },
+
+            //     mounted() {
+            //         // const sliderValue = document.getElementById('sliderValue');
+            //         const canvas = document.querySelector('#windycanvas');
+            //         this.canvasContext = canvas.getContext('2d');
+            //         console.log('到底拿没拿到面板', this.canvasContext);
+            //     },
+            //     methods: {
+            //         initWindData(path) {
+            //             //这个估计在created里面，当组件传入参数（组件间通信）预加载数据
+            //             // path = '/GeoData2021-09-12-00-10.json';
+            //             // this.FieldData = new Array(this.rows).fill().map(() => new Array(this.cols).fill([0, 0, 0]));
+            //         },
+
+            //         onSubmit() {
+            //             console.log('on submit!');
+            //             var path = 'http://localhost:80/vuegis/static/data/2021-09-12/GeoData2021-09-12-00-10.json';
+            //             var self = this;
+            //             var start = new Date();
+            //             this.$axios
+            //                 .get(path)
+            //                 .then(function (res) {
+            //                     return res.data.features;
+            //                 })
+            //                 .then((data) => {
+            //                     // //+type选择 决定field里面放什么
+            //                     // console.log(data.length);
+            //                     // self.FieldData = new Array(this.Pannelcfg.cols)
+            //                     //     .fill('')
+            //                     //     .map((elm) => new Array(this.Pannelcfg.rows).fill([]));
+            //                     self.FieldData = new Array(this.Pannelcfg.cols);
+            //                     for (let i = 0; i < this.Pannelcfg.cols; i++) {
+            //                         self.FieldData[i] = new Array(this.Pannelcfg.rows);
+            //                         for (let j = 0; j < this.Pannelcfg.rows; j++) {
+            //                             self.FieldData[i][j] = [0, 0, 0];
+            //                         }
+            //                     }
+            //                     console.log(
+            //                         'field.Wind大小应该是57(cols经度)*53(rows)*3:',
+            //                         self.FieldData.length,
+            //                         '*',
+            //                         self.FieldData[0].length,
+            //                         '*',
+            //                         self.FieldData[0][0].length,
+            //                     );
+            //                     var a = 0;
+
+            //                     // 初始化数据Field.Wind，并创建风场粒子
+
+            //                     data.forEach(function (point) {
+            //                         let x = point.geometry.coordinates[0]; //经度
+            //                         let y = point.geometry.coordinates[1]; //纬度
+            //                         let xidx = Math.floor((x - self.Pannelcfg.west) / self.Pannelcfg.dx);
+            //                         let yidx = Math.floor((y - self.Pannelcfg.north) / self.Pannelcfg.dy);
+            //                         let dir = point.properties.WindDir;
+            //                         let windv = point.properties.WindVelocity;
+            //                         let windx, windy;
+
+            //                         if ((dir > 360) | (windv < 0)) {
+            //                             windv = 0;
+            //                             windx = 0;
+            //                             windy = 0;
+            //                         } else {
+            //                             windx = Math.cos((dir * Math.PI) / 180) * point.properties.WindVelocity; //经度
+            //                             windy = Math.sin((dir * Math.PI) / 180) * point.properties.WindVelocity;
+
+            //                             // // console.log(self.FieldData[xidx][yidx]);
+            //                             // self.FieldData[xidx][yidx].push([windx, windy, windv]);
+            //                             // console.log('for each', a, xidx, yidx, dir, '°,', '[', windv, windx, windy, ']');
+            //                         }
+            //                         self.FieldData[xidx][yidx][0] = windx;
+            //                         self.FieldData[xidx][yidx][1] = windy;
+            //                         self.FieldData[xidx][yidx][2] = windv;
+
+            //                         //应该加一个线性插值
+            //                         a = a + 1;
+            //                     });
+            //                     // console.log(self.FieldData);
+            //                     // debugger;
+            //                     let xidx, yidx;
+            //                     let wdata = [];
+            //                     let pnum = 0;
+            //                     let p = null;
+            //                     for (xidx = 0; xidx < this.Pannelcfg.cols; xidx++) {
+            //                         for (yidx = 0; yidx < this.Pannelcfg.rows; yidx++) {
+            //                             wdata = self.FieldData[xidx][yidx];
+
+            //                             if (wdata[2] > 0) {
+            //                                 // console.log(
+            //                                 //     '风速不为0 self.FieldData[',
+            //                                 //     xidx,
+            //                                 //     '][',
+            //                                 //     yidx,
+            //                                 //     ']=',
+            //                                 //     self.FieldData[xidx][yidx],
+            //                                 // );
+            //                                 pnum = pnum + 1;
+
+            //                                 p = new CanvasParticle({
+            //                                     x: xidx,
+            //                                     y: yidx,
+            //                                     tx: xidx + wdata[0] * self.speedRate, //经度 ,当前坐标+下一帧x方向走的距离==下一帧的x坐标
+            //                                     ty: yidx + wdata[1] * self.speedRate,
+            //                                     age: Math.round(wdata[2] * self.minAge),
+            //                                     speed: wdata[2],
+            //                                 });
+            //                                 // console.log('风速不为0的粒子：', pnum, xidx, yidx);
+            //                                 self.particles.push(p);
+
+            //                                 if ((xidx == 31) & (yidx >= 25) & (yidx < 30)) {
+            //                                     console.log(
+            //                                         '第一场粒子 位置[',
+            //                                         xidx,
+            //                                         '][',
+            //                                         yidx,
+            //                                         ']:',
+            //                                         p.x,
+            //                                         p.y,
+            //                                         p.tx,
+            //                                         p.ty,
+            //                                         p.age,
+            //                                         p.speed,
+            //                                     );
+            //                                 }
+            //                             }
+
+            //                             // 第一场粒子： 30 30 53 2.654928655597212
+            //                         }
+            //                     }
+
+            //                     //nicktick!!! animate等等
+            //                     // console.log('this.particles', this.particles);
+            //                     // 、、这里可能要nicktick
+
+            //                     self.$nextTick(() => {
+            //                         self.animate();
+            //                         var then = Date.now();
+            //                         (function frame() {
+            //                             self.animateFrame = requestAnimationFrame(frame);
+            //                             var now = Date.now();
+            //                             var delta = now - then;
+            //                             if (delta > self.frameTime) {
+            //                                 then = now - (delta % self.frameTime);
+            //                                 self.animate();
+            //                                 // debugger;
+            //                             }
+            //                         })();
+            //                     });
+
+            //                     // console.log('风速', self.FieldData); //这里是没问题的，self可以拿到数据
+            //                 })
+            //                 .catch((error) => {
+            //                     console.log(error);
+            //                 });
+            //             var end = new Date();
+            //             console.log('读数据\显示数据用时：', end - start);
+            //             // console.log('ajax完了', this.FieldData); //这里是没问题的，self可以拿到数据
+            //             // console.log(
+            //             //     'field.Wind大小应该是57(cols经度)*53(rows)*3:',
+            //             //     self.FieldData.length,
+            //             //     '*',
+            //             //     self.FieldData[0].length,
+            //             //     '*',
+            //             //     self.FieldData[0][0].length,
+            //             // );
+            //         },
+            //         animate() {
+            //             var self = this,
+            //                 field = self.FieldData;
+            //             var nextX = null,
+            //                 nextY = null,
+            //                 // xy = null,
+            //                 uv = [];
+
+            //             // console.log(field);
+            //             for (let i = 0; i < self.particles.length; i++) {
+            //                 var p = this.particles[i];
+            //                 if (p.age <= 0) {
+            //                     self.particles.push(self.randomParticle(self.particles[i]));
+            //                 } else {
+            //                     var x = p.x,
+            //                         y = p.y,
+            //                         tx = p.tx,
+            //                         ty = p.ty;
+
+            //                     // xy=self.getIn(x,y)  //返回计算得到的xidx,yidx
+
+            //                     if ((x == 30) & (y == 30)) {
+            //                         console.log('30,30处的粒子animate', p);
+            //                     }
+
+            //                     // 这里！！！
+            //                     if (!self.isInBound(tx, ty)) {
+            //                         p.age = 0;
+            //                     } else {
+            //                         // 跳到下一次风到的格子
+            //                         //我的xy记录的是windx,和windy，不是xidx,yidx
+            //                         // console.log('跳到下一次风到的格子', x, y, Math.floor(x), Math.floor(y));
+
+            //                         //又没理清，话说x,y不是记录坐标的吗？？？
+            //                         //再说，tx,ty开始就是null，现在赋给x,y让他们往哪里走？？？？第一次移动的问题没想明白
+
+            //                         // uv = field[Math.floor(x)][Math.floor(y)];
+            //                         uv = self.getIn(tx, ty); //[x,y,v]
+            //                         if ((x == 31) & (y >= 25) & (y < 30)) {
+            //                             console.log(x, y, '-->', tx, ty, '且[', tx, ty, ']', '的下一次移动方向uv', uv);
+            //                         }
+
+            //                         nextX = tx + self.speedRate * uv[0];
+            //                         nextY = ty + self.speedRate * uv[1];
+            //                         p.x = tx;
+            //                         p.y = ty;
+            //                         p.tx = nextX;
+            //                         p.ty = nextY;
+            //                         p.age--;
+            //                     }
+            //                 }
+            //             }
+
+            //             if (self.particles.length <= 0) {
+            //                 console.log('粒子总数', self.particles.length);
+            //                 self.removeLines();
+            //             }
+
+            //             self._drawLines();
+            //         },
+            //         getFileNameformData(date) {
+            //             let dateStr =
+            //                 date.getFullYear() +
+            //                 '-' +
+            //                 ('0' + (date.getMonth() + 1)).slice(-2) +
+            //                 '-' +
+            //                 ('0' + date.getDate()).slice(-2) +
+            //                 '-' +
+            //                 ('0' + date.getHours()).slice(-2) +
+            //                 '-' +
+            //                 ('0' + date.getMinutes()).slice(-2);
+            //             // con-sole.log(dateStr);
+            //             return dateStr;
+            //         },
+            //         StopAnimation() {
+            //             console.log('stop top', this.ParticleArgObj);
+
+            //             if (!this.animation) {
+            //                 return;
+            //             }
+
+            //             this.animation.remove();
+            //             this.animation = null;
+            //         },
+
+            //         //组件间通信（动画组件传递时间字符串、选项；或者自己面板传入参数）：控制预加载数据类型，控制渲染类型
+            //         choiceType() {
+            //             // console.log('choiceType', this.ParticleArgObj.DataType);
+            //             switch (this.ParticleArgObj.DataType) {
+            //                 case 1:
+            //                     // 这里return  this.initWindData()   放在this.field
+            //                     // 决定初始加载和最后渲染样式!!!   波浪（这个再说，不行就粒子动画）||流、风
+            //                     this.FiledRatation = 'WindDir';
+            //                     this.FiledColor = 'WindVelocity';
+
+            //                     this.steps = [
+            //                         // { value: -1, color: '#b0e0e6' },
+            //                         { value: 0, color: '#87cefa', lable: '<0' },
+            //                         { value: 1.6, color: '#2b83ba', lable: '1.6' },
+            //                         { value: 5.5, color: '#abdda4', lable: '5.5' },
+            //                         { value: 8.0, color: '#ffffbf', lable: '8.0' },
+            //                         { value: 13.9, color: '#fdae61', lable: '13.9' },
+            //                         { value: 20.8, color: '#d7191c', lable: '20.8' },
+            //                         { value: 30, color: '#ffffff', lable: '30' },
+            //                     ];
+            //                     break;
+            //                 case 2:
+            //                     // 这里return  this.initWaveData() 放在this.field
+            //                     this.FiledRatation = 'WaveDir';
+            //                     this.FiledColor = 'WaveHs';
+            //                     this.steps = [
+            //                         // { value: -1, color: '#b0e0e6' },
+            //                         { value: 0, color: '#87cefa', lable: '<0' },
+            //                         { value: 0.4, color: '#2b83ba', lable: '0.4' },
+            //                         { value: 0.8, color: '#abdda4', lable: '0.8' },
+            //                         { value: 1.5, color: '#ffffbf', lable: '1.5' },
+            //                         { value: 2.3, color: '#fdae61', lable: '2.3' },
+            //                         { value: 3.0, color: '#d7191c', lable: '3.0' },
+            //                         { value: 4.0, color: '#ffffff', lable: '>4.0' },
+            //                     ];
+            //                     break;
+            //                 case 3:
+            //                     this.FiledRatation = 'CurDirection';
+            //                     this.FiledColor = 'Current';
+            //                     this.steps = [
+            //                         { value: 0, color: '#87cefa', lable: '<0' },
+            //                         { value: 20, color: '#2b83ba', lable: '20' },
+            //                         { value: 40, color: '#abdda4', lable: '40' },
+            //                         { value: 60, color: '#ffffbf', lable: '60' },
+            //                         { value: 80, color: '#fdae61', lable: '80' },
+            //                         { value: 95, color: '#d7191c', lable: '95' },
+            //                         { value: 110, color: '#ffffff', lable: '>110' },
+            //                     ];
+            //                     break;
+            //                 default:
+            //                     console.log('单选项返回值出错');
+            //             }
+            //         },
+            //         fRandomByfloat: function (under, over) {
+            //             return under + Math.random() * (over - under);
+            //         },
+            //         randomParticle(particle) {
+            //             // 从检测中心位置向四周随机找位置，直到找到不为0的点（最多找 1542 次） 似乎太多次了
+            //             var safe = 0; //30,
+            //             var x, y;
+            //             // var x = 0 //,Math.floor(this.Pannelcfg.cols / 2);
+            //             // var y = 0//Math.floor(this.Pannelcfg.rows / 2);
+
+            //             //!!!我的x,y row clos是不是对应错了
+            //             // 随机产生一个粒子看能不能动起来（下一步的格子里有风）
+            //             // let _x, _y;
+            //             /*
+            //             do {
+            //                 x = Math.round(Math.floor(Math.random() * bounds.width) + bounds.x); //这里！
+            //                 y = Math.round(Math.floor(Math.random() * bounds.height) + bounds.y);
+            //             } while (field(x, y)[2] === null && safetyNet++ < 30);
+            // */
+            //             do {
+            //                 // x =
+            //                 //     this.generateParticleExtent.length == 0
+            //                 //         ? Math.random(0, this.Pannelcfg.cols - 2)
+            //                 //         : Math.random(this.generateParticleExtent[0], this.generateParticleExtent[1]);
+            //                 // y =
+            //                 //     this.generateParticleExtent.length == 0
+            //                 //         ? Math.random(0, this.Pannelcfg.rows - 2)
+            //                 //         : Math.random(this.generateParticleExtent[2], this.generateParticleExtent[3]);
+            //                 //!! x = Math.round(Math.floor(Math.random() * bounds.width) + bounds.x); //这里！
+            //                 //!! y = Math.round(Math.floor(Math.random() * bounds.height) + bounds.y);
+            //                 x = Math.floor(this.fRandomByfloat(0, this.Pannelcfg.cols / 2 - 2));
+            //                 y = Math.floor(this.fRandomByfloat(0, this.Pannelcfg.rows / 2 - 2));
+            //                 // _x = this.fRandomByfloat(0, this.Pannelcfg.cols / 2 - 2);
+            //                 // _y = this.fRandomByfloat(0, this.Pannelcfg.rows / 2 - 2);
+            //                 // x = Math.floor(x + _x);
+            //                 // y = Math.floor(y + _y);
+            //                 // console.log('randomParticle x,y,data[x][y]', x, y, this.getIn(x, y)[2]);
+            //                 // } while (this.FieldData[x][y][2] <= 0 && safe++ < this.Pannelcfg.rows * this.Pannelcfg.cols);
+            //             } while (this.getIn(x, y)[2] <= 0);
+            //             //最多找一百次 找到棋盘不为0的风速格子
+            //             console.log('终于找到不为风速0的粒子 x,y', x, y);
+            //             // debugger;
+            //             // var fdata = this.FieldData[x][y];
+            //             // var uv = this._calcXY(fdata[0], fdata[1]); //根据风速和角度得到的[x,y,v]
+            //             // var nextX = x + this.speedRate * uv[0];
+            //             // var nextY = y + this.speedRate * uv[1];
+            //             // x: xidx,
+            //             //                         y: yidx,
+            //             //                         tx: xidx + wdata[0] * self.speedRate, //经度 ,当前坐标+下一帧x方向走的距离==下一帧的x坐标
+            //             //                         ty: yidx + wdata[1] * self.speedRate,
+            //             //                         age: Math.round(wdata[2] * self.minAge),
+            //             //                         speed: wdata[2],
+
+            //             var uv = this.FieldData[x][y];
+            //             particle.x = x;
+            //             particle.y = y;
+            //             var nextX = x + this.speedRate * uv[0];
+            //             var nextY = y + this.speedRate * uv[1];
+            //             particle.tx = nextX;
+            //             particle.ty = nextY;
+            //             particle.speed = uv[2];
+            //             particle.age = Math.round(uv[2] * this.minAge);
+            //             // particle.speed = uv[2];
+            //             // particle.age = Math.round(uv[2] * this.minAge);
+            //             console.log('随机生成的粒子', particle);
+            //             //每一次生成都不一样   #！我的生成时间应该怎么办呢？ 速度越大，存活时间越长
+            //             // this.particles.push()
+            //             return particle;
+            //         },
+            //         // _calcXY(radius, theta) {
+            //         //     return [radius * Math.cos(theta), radius * Math.sin(theta), radius];
+            //         // },
+            //         _calcUV: function (u, v) {
+            //             return [+u, +v, Math.sqrt(u * u + v * v)];
+            //         },
+            //         // //双线性插值计算给定节点的速度
+            //         _bilinearInterpolation(x, y, g00, g10, g01, g11) {
+            //             var rx = 1 - x;
+            //             var ry = 1 - y;
+            //             var a = rx * ry,
+            //                 b = x * ry,
+            //                 c = rx * y,
+            //                 d = x * y;
+            //             var u = g00[0] * a + g10[0] * b + g01[0] * c + g11[0] * d;
+            //             var v = g00[1] * a + g10[1] * b + g01[1] * c + g11[1] * d;
+            //             console.log('线性插值计算得到最近的坐标点：', u, v);
+            //             return this._calcUV(u, v);
+            //         },
+            //         getIn(x, y) {
+            //             var x0 = Math.floor(x),
+            //                 y0 = Math.floor(y),
+            //                 x1,
+            //                 y1;
+            //             if (x0 === x && y0 === y) {
+            //                 // console.log('对应的网格(x0,y0)', x0, y0);
+            //                 return this.FieldData[x][y];
+            //             }
+            //             x1 = x0 + 1;
+            //             y1 = y0 + 1;
+            //             // console.log('对应的网格(x1,y1)', x1, y1);
+            //             return this.FieldData[Math.floor(x1)][Math.floor(y1)];
+
+            //             //这个线性双插值是为了计算风速[windx,windy,windv]的，但是现在出错了，所有结果(u,v)都是：29.99340573805987 41.45665111615797
+            //             // var g00 = this.getIn(x0, y0),
+            //             //     g10 = this.getIn(x1, y0),
+            //             //     g01 = this.getIn(x0, y1),
+            //             //     g11 = this.getIn(x1, y1);
+            //             // return this._bilinearInterpolation(x - x0, y - y0, g00, g10, g01, g11);
+            //         },
+            //         isInBound(x, y) {
+            //             if (x >= 0 && x < this.Pannelcfg.cols - 1 && y >= 0 && y < this.Pannelcfg.rows - 1) return true;
+            //             return false;
+            //         },
+            //         removeLines() {
+            //             window.cancelAnimationFrame(this.animateFrame);
+            //         },
+            //         //根据粒子当前所处的位置(棋盘网格位置)，得到canvas画板中的位置，以便画图
+            //         _map(x, y) {
+            //             var fieldWidth = this.Pannelcfg.cols,
+            //                 fieldHeight = this.Pannelcfg.rows,
+            //                 newArr = [0, 0];
+
+            //             var noextent = this.generateParticleExtent.length == 0;
+            //             newArr[0] = Math.floor((x / fieldWidth) * this.canvasWidth);
+            //             newArr[1] = Math.floor((y / fieldHeight) * this.canvasHeight);
+
+            //             // newArr[0] = Math.floor(
+            //             //     ((noextent ? x : x - this.generateParticleExtent[0]) /
+            //             //         (noextent ? fieldWidth : this.generateParticleExtent[1] - this.generateParticleExtent[0])) *
+            //             //         this.canvasWidth,
+            //             // );
+            //             // newArr[1] = Math.floor(
+            //             //     ((noextent ? y : y - this.generateParticleExtent[2]) /
+            //             //         (noextent ? fieldHeight : this.generateParticleExtent[2] - this.generateParticleExtent[3])) *
+            //             //         this.canvasHeight,
+            //             // );
+            //             // newArr[0] = Math.floor(
+            //             //     ((x - this.generateParticleExtent[0]) /
+            //             //         (this.generateParticleExtent[1] - this.generateParticleExtent[0])) *
+            //             //         this.canvasWidth,
+            //             // );
+            //             // newArr[1] = Math.floor(
+            //             //     ((y - this.generateParticleExtent[2]) /
+            //             //         (this.generateParticleExtent[2] - this.generateParticleExtent[3])) *
+            //             //         this.canvasHeight,
+            //             // );
+            //             // console.log('在图中的点', newArr);
+            //             return newArr;
+            //         },
+            //         _drawLines() {
+            //             var self = this;
+            //             var particles = this.particles;
+
+            //             this.canvasContext.lineWidth = self.lineWidth;
+            //             //后绘制的图形和前绘制的图形如果发生遮挡的话，只显示后绘制的图形跟前一个绘制的图形重合的前绘制的图形部分，示例：https://www.w3school.com.cn/tiy/t.asp?f=html5_canvas_globalcompop_all
+            //             this.canvasContext.globalCompositeOperation = 'destination-in';
+            //             this.canvasContext.fillRect(0, 0, this.canvasWidth, this.canvasHeight);
+            //             this.canvasContext.globalCompositeOperation = 'lighter'; //重叠部分的颜色会被重新计算
+            //             this.canvasContext.globalAlpha = 0.9;
+
+            //             this.canvasContext.beginPath();
+            //             this.canvasContext.strokeStyle = this.color;
+            //             // console.log('当前面板附近', this.canvasContext);
+            //             // console.log('面板绘制区域', this.generateParticleExtent);
+            //             // console.log(particles);
+            //             particles.forEach(function (particle) {
+            //                 // debugger;
+            //                 var movetopos = self._map(particle.x, particle.y);
+            //                 var linetopos = self._map(particle.tx, particle.ty);
+            //                 // console.log(movetopos, '--->', linetopos);
+            //                 self.canvasContext.moveTo(movetopos[0], movetopos[1]);
+            //                 self.canvasContext.lineTo(linetopos[0], linetopos[1]);
+            //             });
+            //             // console.log('线呢？原来是和背景色设置成一样了。。。');
+            //             this.canvasContext.stroke();
+            //         },
+            //     },
+
+            // };
+        </script>
+    </body>
+</html>

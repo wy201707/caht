@@ -1,0 +1,21 @@
+{
+    "type": "FeatureCollection",
+    "features": [
+        {
+            "type": "Feature",
+            "properties": {
+                "Magnitude": 矢量值,
+                "Direction": 方向,
+                "Credit": 置信度,
+            },
+            "geometry": {
+                "type": "Point",
+                "show_on_map": "true",
+                "coordinates": [
+                    该点精度值，
+                    该点维度值
+                ]
+            }
+        }
+    ]
+}

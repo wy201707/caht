@@ -1,0 +1,86 @@
+{
+  "name": "vue-jspapi",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "serve": "vue-cli-service serve",
+    "build": "vue-cli-service build",
+    "lint": "vue-cli-service lint",
+    "dev": "nodemon ./server/main.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "babel-plugin-component": "^1.1.1",
+    "bcryptjs": "^2.4.3",
+    "core-js": "^3.8.3",
+    "dotenv": "^16.0.3",
+    "echarts": "^5.4.1",
+    "echarts-gl": "^1.1.0",
+    "element-ui": "^2.15.8",
+    "jsonwebtoken": "^9.0.0",
+    "koa": "^2.14.1",
+    "koa-body": "^6.0.1",
+    "koa-bodyparser": "^4.3.0",
+    "koa-cors": "0.0.16",
+    "koa-json": "^2.0.2",
+    "koa-logger": "^3.2.1",
+    "koa-router": "^10.0.0",
+    "koa-static": "^5.0.0",
+    "mysql2": "^3.0.1",
+    "sequelize": "^6.28.0",
+    "sequelize-auto": "^0.8.8",
+    "vue": "^2.6.14",
+    "vue-cli": "^2.9.6",
+    "vuex": "^3.6.2"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.12.16",
+    "@babel/eslint-parser": "^7.12.16",
+    "@vue/cli-plugin-babel": "~5.0.0",
+    "@vue/cli-plugin-eslint": "~5.0.0",
+    "@vue/cli-service": "~5.0.0",
+    "axios": "^0.27.2",
+    "eslint": "^7.32.0",
+    "eslint-plugin-vue": "^8.0.3",
+    "esri-loader": "^3.5.0",
+    "nodemon": "^2.0.20",
+    "prettier": "^2.6.2",
+    "qs": "^6.10.3",
+    "vue-router": "^3.2.0",
+    "vue-template-compiler": "^2.6.14"
+  },
+  "eslintConfig": {
+    "root": true,
+    "env": {
+      "node": true
+    },
+    "extends": [
+      "plugin:vue/essential",
+      "eslint:recommended"
+    ],
+    "parserOptions": {
+      "parser": "@babel/eslint-parser"
+    },
+    "rules": {}
+  },
+  "browserslist": [
+    "> 1%",
+    "last 2 versions",
+    "not dead"
+  ],
+  "description": "vue-jspapi",
+  "main": ".prettierrc.js",
+  "directories": {
+    "example": "example"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/wy201707/ArcGIS_vue.git"
+  },
+  "author": "wy",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/wy201707/ArcGIS_vue/issues"
+  },
+  "homepage": "https://github.com/wy201707/ArcGIS_vue#readme"
+}
