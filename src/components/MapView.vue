@@ -4,29 +4,92 @@
         <div id="basemapToggle"></div>
         <div id="scalebar"></div>
         <div id="zoom"></div>
-        <div class="view-change" @click="handleViewChange">
+        <!-- <div class="view-change" @click="handleViewChange"> -->
+        <div id="viewChange" @click="handleViewChange">
             <span>{{ viewModel }}</span>
         </div>
-        <div class="view-home" id="viewHome"></div>
+        <!-- <div class="view-home" id="viewHome"></div> -->
+        <div id="viewHome"></div>
+        <div id="particleSwitch">
+            <el-tooltip :content="'粒子动画'" placement="top">
+                <el-switch
+                    v-model="ParticleSwitch"
+                    active-color="#13ce66"
+                    inactive-color="#ff4949"
+                    active-value="打开"
+                    inactive-value="关闭"
+                    @change='particleChange'
+                >
+                </el-switch>
+            </el-tooltip>
+        </div>
     </div>
 </template>
 
 <script>
 import { loadModules } from 'esri-loader';
 import config from './config';
+// import ael from './../utils/animatedEnvironmentLayer'
 export default {
     name: 'MapView',
     data() {
         return {
-            viewModel: '3D'
+            viewModel: '3D',
+            ParticleSwitch: false,
+            environmentLayer:null,
+            dataOptions:[]
+
+
         };
+    },
+    computed: {
+        DateTime(){
+            return  this.$store.getters._getTimeSelected;
+        },
+        DataType(){
+            return  this.$store.getters._getParticleDataType;
+        },
+
     },
     component: {},
     mounted: function () {
         // console.log(this.$store.state._defaultView);  取值
         this._createMapView();
     },
+
     methods: {
+        particleChange(){
+            console.log('this.DataType:',this.DataType,'this.DateTime:',this.DateTime)
+            if(this.DataType && this.DateTime){
+                //传递值给粒子动画  换句话说，这里应该传值给pageSet组件，但把这个传过去又传回来，略显奇怪
+                //这里其实改变的就是数据源（url）就可以了
+                var displayOptionsTemp={
+                    maxVelocity: 4.5,//5.2
+                    lineWidth: 5,
+                    particleAge: 150,//30
+                    // maxVelocity: 6,
+                    velocityScale: 0.01,
+                    frameRate: 10,
+                    // lineWidth: 5,//为啥失效了
+                    // particleDensity: [{ zoom: 2, density: 10 }, { zoom: 4, density: 9 }, { zoom: 8, density: 6 }, { zoom: 10, density: 4 }, { zoom: 12, density: 3 }],
+                    customFadeFunction: this.customFadeFunction,
+                    // customDrawFunction: this.customDrawFunction // a custom draw function
+                }
+                this.environmentLayer = new ael.AnimatedEnvironmentLayer({
+                    id: "ael-layer",
+                    url: "./data/wave/20210806_0010.json",//this.dataOptions[0].url,
+                    displayOptions:displayOptionsTemp//this.dataOptions[0].displayOptions
+                });
+                this.map.add(this.environmentLayer);
+                console.log('0429怎么产生子组件？其实这里也可以之间添加层，（就只需要引入js文件，照着setup整流程就可以了）')
+            
+            }
+            console.log('但是你说的自定义样式组件，这个咋搞，要不把层和粒子动画分开，就说层+customFunctuion是各组件？？？')
+            // 反正自定义组件也不可能完全不写代码，只是前端不可能传入代码。
+            //就是这块功能单一应该就可以了
+            console.log('或者想想办法，把前端加个样式控制控件（除了常见参数，还可以设置海浪前进后退比），但是那个线条宽度倒是可以选择：恒定、随测量值大小递增、递减，起点也可以选择，但是你说说这个总是提到的自定义函数怎么拆分？')
+              
+        },
         async _createMapView() {
             // 妈的获得的是div的id，因为scaleBar中的B搞了半天
             document.getElementById('basemapToggle').innerHTML = '';
@@ -144,7 +207,7 @@ export default {
             document.getElementById('basemapToggle').innerHTML = '';
             document.getElementById('scalebar').innerHTML = '';
             document.getElementById('zoom').innerHTML = '';
-            const [Map, SceneView, Basemap, TileLayer, BasemapToggle, ScaleBar, Zoom] = await loadModules(
+            const [Map, SceneView, Basemap, TileLayer, BasemapToggle, ScaleBar, Zoom, Home] = await loadModules(
                 [
                     'esri/Map',
                     'esri/views/SceneView',
@@ -152,7 +215,8 @@ export default {
                     'esri/layers/TileLayer',
                     'esri/widgets/BasemapToggle',
                     'esri/widgets/ScaleBar',
-                    'esri/widgets/Zoom'
+                    'esri/widgets/Zoom',
+                    'esri/widgets/Home'
                 ],
                 config.options
             );
@@ -213,7 +277,13 @@ export default {
                 zoomFactor: 1 // set the zoom factor to 1.5 0412控制缩小步伐
             });
             sceneView.ui.add(this.zoom);
-
+            sceneView.ui.add(
+                new Home({
+                    view: sceneView,
+                    container: 'viewHome'
+                })
+            );
+            sceneView.ui.components = []; //去掉左上角的缩放图标(地图自带的，没办法设置格式和位置)
             setTimeout(() => {
                 sceneView.goTo({
                     zoom: 6,
@@ -260,6 +330,44 @@ export default {
     right: 20px;
     bottom: 95px;
 }
+#viewChange {
+    position: absolute;
+    width: 32px;
+    height: 32px;
+    right: 20px;
+    bottom: 180px;
+    background-color: #fff;
+    cursor: pointer;
+    text-align: center;
+}
+#viewChange span {
+    line-height: 32px;
+    /* line-height: 40px; */
+}
+
+#viewHome {
+    position: absolute;
+    width: 32px;
+    height: 32px;
+    right: 20px;
+    bottom: 220px;
+    background-color: #fff;
+    cursor: pointer;
+    text-align: center;
+}
+#particleSwitch {
+    position: absolute;
+    right: 20px;
+    bottom: 260px;
+    width: 32px;
+
+    cursor: pointer;
+    text-align: center;
+}
+
+.el-switch {
+    width: 32px;
+}
 .view-change {
     position: absolute;
     /*     width: 32px;
@@ -279,7 +387,8 @@ export default {
     height: 32px; */
     width: 40px;
     height: 40px;
-    right: 15px;
+    right: 200px;
+    /* 15px; */
     bottom: 220px;
     background-color: #fff;
     cursor: pointer;
@@ -288,5 +397,14 @@ export default {
 .view-change span {
     /* line-height: 32px; */
     line-height: 40px;
+}
+.particle-switch {
+    position: absolute;
+    right: 20px;
+    bottom: 260px;
+    width: 40px;
+    height: 40px;
+    cursor: pointer;
+    text-align: center;
 }
 </style>
