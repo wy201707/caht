@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Animated Environment Layer</title>
+        <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+        <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" />
+
+        <style>
+            html,
+            body {
+                height: 100%;
+                width: 100%;
+                margin: 0;
+                padding: 0;
+                font-family: abel, Arial, Calibri;
+                overflow: hidden;
+            }
+
+            #container,
+            .view {
+                width: 100%;
+                height: 100%;
+                padding: 0;
+                margin: 0;
+                position: relative;
+            }
+
+            .view.hidden {
+                position: absolute;
+                z-index: -10;
+            }
+
+            /* top menu */
+            #top-menu {
+                -webkit-box-shadow: 2px 3px 22px 0px rgba(173, 173, 173, 0.75);
+                -moz-box-shadow: 2px 3px 22px 0px rgba(173, 173, 173, 0.75);
+                box-shadow: 2px 3px 22px 0px rgba(173, 173, 173, 0.75);
+                position: absolute;
+                left: 10px;
+                top: 10px;
+                padding: 0 10px;
+                height: 45px;
+                width: auto;
+                background: rgba(46, 68, 94, 0.8);
+                z-index: 2001;
+                color: #fff;
+            }
+
+            #top-menu .section {
+                display: inline-block;
+                height: 100%;
+                padding: 0 5px;
+                padding-top: 10px;
+            }
+
+            #top-menu .separator {
+                height: 100%;
+                width: 3px;
+                border-right: 1px solid #d0d0d0;
+                padding: 0;
+            }
+
+            #top-menu .button {
+                display: inline-block;
+                height: 100%;
+                color: #fff;
+                margin: 0 5px;
+                background: none;
+                border: none;
+                cursor: pointer;
+                width: 85px;
+                padding: 0;
+            }
+
+            #top-menu .button.active {
+                font-weight: bold;
+                background: rgba(0, 0, 0, 0.1);
+                border: 1px solid rgba(255, 255, 255, 0.1);
+            }
+
+            #top-menu .button:focus {
+                outline: none;
+            }
+
+            #top-menu .button:hover {
+                opacity: 0.7;
+                transition: opacity 0.4s;
+            }
+
+            #top-menu select {
+                font-size: 1em;
+                height: 60%;
+                font-family: abel, Arial;
+            }
+
+            #report-container {
+                position: absolute;
+                bottom: 20px;
+                left: 10px;
+                background: rgba(0, 0, 0, 0.6);
+                color: #fff;
+                padding: 5px 10px;
+            }
+
+            @media (min-width: 320px) and (max-width: 639px) {
+                #top-menu #title-text {
+                    display: none;
+                }
+
+                #top-menu .button {
+                    width: 75px;
+                    margin: 0;
+                }
+            }
+        </style>
+
+        <link href="//fonts.googleapis.com/css?family=Abel" rel="stylesheet" />
+        <link rel="stylesheet" href="https://js.arcgis.com/4.21/esri/css/main.css" />
+
+        <!-- 解释这段代码和dojo包引入用法
+            如果将js代码直接写到script中，这段配置代码可以删除吗？
+            <script>
+            var dojoConfig = {
+                async: true,
+                tlmSiblingOfDojo: false,
+                packages: [
+                    {
+                        name: 'ael',
+                        location: '/ael'
+                    }
+                ]
+            };
+        </script> -->
+
+        <script src="https://js.arcgis.com/4.21/"></script>
+
+        <script type="text/javascript">
+            /// <reference path="../typings/index.d.ts" />
+
+            require([
+                'esri/views/MapView',
+                'esri/Map',
+                'esri/geometry/Point',
+                'esri/geometry/SpatialReference',
+                'esri/Basemap',
+                'dojo/on',
+                'dojo/dom',
+                './aeLayer',
+                'dojo/domReady!'
+            ], function (MapView, Map, Point, SpatialReference, Basemap, on, dom, animatedEnvironmentLayer_1) {
+                'use strict';
+                // Object.defineProperty(exports, '__esModule', { value: true });
+                var PageSetup = /** @class */ (function () {
+                    function PageSetup() {
+                        this._dataOptions = [];
+                    }
+                    PageSetup.prototype.init = function () {
+                        var _this = this;
+                        this._initDataOptions();
+                        // var satellite = Basemap.fromId("satellite");
+                        var darkgray = Basemap.fromId('dark-gray');
+                        this.map = new Map({
+                            basemap: darkgray //satellite
+                        });
+                        this.mapView = new MapView({
+                            container: 'map-view',
+                            center: new Point({
+                                x: 118.36,
+                                y: 23.4,
+                                spatialReference: new SpatialReference({ wkid: 4326 })
+                            }), ///&&&&
+                            // center: new Point({ x: 128, y: -24, spatialReference: new SpatialReference({ wkid: 4326 }) }),
+                            zoom: 9, ///&&&&
+                            // zoom: 4,
+                            map: this.map,
+                            ui: { components: ['compass', 'zoom'] }
+                        });
+                        this.mapView.ui.move('zoom', 'bottom-right');
+                        // this.mapView.ui.move("compass", "bottom-right");
+                        this.environmentLayer = new animatedEnvironmentLayer_1.AnimatedEnvironmentLayer({
+                            id: 'ael-layer',
+                            url: this._dataOptions[0].url,
+                            displayOptions: this._dataOptions[0].displayOptions
+                        });
+                        this.map.add(this.environmentLayer);
+                        //setup some event handlers to react to change of options
+                        on(dom.byId('data-select'), 'change', function (evt) {
+                            return _this._dataChange(evt.target.value);
+                        });
+                        on(dom.byId('basemap-select'), 'change', function (evt) {
+                            return _this._basemapChange(evt.target.value);
+                        });
+                        // subscribe to the point-report event and display the values in UI.
+                        var windLayerAny = this.environmentLayer;
+                        windLayerAny.on('point-report', function (rpt) {
+                            dom.byId('direction').innerHTML = rpt.degree ? rpt.degree.toFixed(1) : 'n/a';
+                            dom.byId('speed').innerHTML = rpt.velocity ? rpt.velocity.toFixed(2) : 'n/a';
+                            /*                 dom.byId("lon").innerHTML = rpt.lon ? rpt.lon.toFixed(2) : "无法显示经度";
+                dom.byId("lat").innerHTML = rpt.lat ? rpt.lat.toFixed(2) : "无法显示纬度"; */
+                            // dom.byId("zoomI").innerHTML = rpt.zoom ? rpt.zoom.toFixed(2) : "无法显示zoom";
+                        });
+                        //this.listenOnDevicePixelRatio();
+                    };
+                    PageSetup.prototype.listenOnDevicePixelRatio = function () {
+                        var _this = this;
+                        var mediaQuery = window.matchMedia('(resolution: ' + window.devicePixelRatio + 'dppx)');
+                        mediaQuery.addEventListener(
+                            'change',
+                            function () {
+                                console.log('in change');
+                                _this.devicePixelRatioChanged();
+                            },
+                            { once: true }
+                        );
+                        console.log('called listenOnDevicePixelRatio');
+                    };
+                    PageSetup.prototype.devicePixelRatioChanged = function () {
+                        console.log('devicePixelRatio changed: ' + window.devicePixelRatio);
+                        this.listenOnDevicePixelRatio();
+                    };
+                    //①
+                    PageSetup.prototype._dataChange = function (id) {
+                        var opt = undefined;
+                        for (var i = 0, len = this._dataOptions.length; i < len; i++) {
+                            if (this._dataOptions[i].id === id) {
+                                opt = this._dataOptions[i];
+                                break;
+                            }
+                        }
+                        if (!opt) return;
+                        this.environmentLayer.displayOptions = opt.displayOptions;
+                        this.environmentLayer.url = opt.url;
+                    };
+                    /**
+                     * Seed some options for data
+                     */
+                    //②
+                    PageSetup.prototype._initDataOptions = function () {
+                        // setup some data options
+                        var globalWind = {
+                            url: './data/global-wind.json',
+                            id: 'Global wind',
+                            displayOptions: {
+                                maxVelocity: 15,
+                                particleAge: 60, //30,
+                                frameRate: 30
+                            }
+                        };
+
+                        // Make swell look different to wind
+                        var ausSwell = {
+                            url: './data/auswave_pop_flds_combined.json',
+                            id: 'Australian swell',
+                            displayOptions: {
+                                maxVelocity: 5,
+                                lineWidth: 5,
+                                particleAge: 90 //30
+                            }
+                        };
+                        var myWind = {
+                            url: './data/20210806_0010.json',
+                            id: 'myWind',
+                            displayOptions: {
+                                maxVelocity: 25, //10,//50,//26,//25.3
+                                // particleDensity: [{ zoom: 2, density: 10 }, { zoom: 4, density: 9 }, { zoom: 8, density: 6 }, { zoom: 10, density: 4 }, { zoom: 12, density: 3 }],
+                                particleDensity: [
+                                    { zoom: 4, density: 10 },
+                                    { zoom: 8, density: 8 },
+                                    { zoom: 10, density: 6 },
+                                    { zoom: 12, density: 5 }
+                                ]
+                            }
+                        };
+                        var myWave = {
+                            url: './data/wave/20210806_0010.json',
+                            id: 'myWave',
+                            displayOptions: {
+                                maxVelocity: 4.5, //5.2
+                                lineWidth: 5,
+                                particleAge: 150, //30
+                                // maxVelocity: 6,
+                                velocityScale: 0.01,
+                                frameRate: 10,
+                                // lineWidth: 5,//为啥失效了
+                                // particleDensity: [{ zoom: 2, density: 10 }, { zoom: 4, density: 9 }, { zoom: 8, density: 6 }, { zoom: 10, density: 4 }, { zoom: 12, density: 3 }],
+                                customFadeFunction: this.customFadeFunction
+                                // customDrawFunction: this.customDrawFunction // a custom draw function
+                            }
+                        };
+
+                        var myCur = {
+                            url: './data/cur/20210806_0010.json',
+                            id: 'myCur',
+                            displayOptions: {
+                                maxVelocity: 160, // 160,
+                                lineWidth: 1, //3,
+                                // particleAge: 100,//30
+                                velocityScale: 0.0006,
+                                // frameRate: 30,
+                                particleDensity: [
+                                    { zoom: 2, density: 10 },
+                                    { zoom: 4, density: 9 },
+                                    { zoom: 8, density: 6 },
+                                    { zoom: 10, density: 4 },
+                                    { zoom: 12, density: 3 }
+                                ],
+                                customFadeFunction: this.customFadeFunction,
+                                customDrawFunction: this.customDrawFunction // a custom draw function
+                            }
+                        };
+                        this._dataOptions.push(myWind);
+                        this._dataOptions.push(myWave);
+                        this._dataOptions.push(myCur);
+                        // this._dataOptions.push(ausSwell);&&&&
+                        // this._dataOptions.push(globalWind2);
+                        // this._dataOptions.push(ausSwell);
+                        this._dataOptions.push(globalWind);
+
+                        var select = dom.byId('data-select');
+                        this._dataOptions.forEach(function (opt) {
+                            var element = document.createElement('option');
+                            element.id = opt.id;
+                            element.innerHTML = opt.id;
+                            select.appendChild(element);
+                        });
+                    };
+                    //③
+                    PageSetup.prototype.customDrawFunction = function (context, particle, colorStyle) {
+                        // draw a circle and make the radius a factor of the magnitude
+                        var radius = particle.currentVector[2] / 40;
+                        // var radius = particle.currentVector[2] / 8;
+
+                        context.beginPath();
+                        // console.log('为什么没变？',context.lineWidth) //0.000几到2.几确实看不出来
+                        context.lineWidth = Math.ceil(
+                            context.lineWidth * (1 / 3) + particle.currentVector[2] * (2 / 3)
+                        );
+                        context.fillStyle = colorStyle;
+                        context.arc(particle.x, particle.y, radius, 0, 2 * Math.PI);
+
+                        context.fill();
+                    };
+                    //④
+                    PageSetup.prototype.customFadeFunction = function (context, bounds) {
+                        //函数功能：调整透明度、轨迹叠加方式、或者清除轨迹只展示粒子
+                        // Fade existing particle trails
+                        context.globalCompositeOperation = 'destination-in'; //现有痕迹留下烟雾状痕迹
+                        // context.globalCompositeOperation = "darken";//重叠地区颜色叠加，取更暗的像素
+                        // context.globalCompositeOperation = "multiply";//重叠地区颜色叠加，稍 微变暗
+                        context.fillRect(bounds.x, bounds.y, bounds.width, bounds.height);
+                        context.globalCompositeOperation = 'lighter';
+                        // context.globalAlpha = 0.85;//轨迹叠加严重，亮度太高，只能降低一点轨迹重合的可能
+                        context.globalAlpha = 0.9; //轨迹叠加严重，亮度太高，只能降低一点轨迹重合的可能
+
+                        // perhaps you don't want a trail and just want it cleared between each frame - then just use the below line.
+                        // context.clearRect(bounds.x, bounds.y, bounds.width, bounds.height);
+                    };
+                    //⑤ 底图切换就这么 容易？？那我之前是不是整复杂了  冷静，不是重点
+                    PageSetup.prototype._basemapChange = function (id) {
+                        var bm = Basemap.fromId(id);
+                        this.map.basemap = bm;
+                    };
+                    return PageSetup;
+                })();
+
+                var setup = new PageSetup.PageSetup();
+                setup.init();
+            });
+        </script>
+    </head>
+    <body>
+        <div id="container">
+            <div class="view" id="map-view"></div>
+
+            <div class="view" id="scene-view"></div>
+
+            <div id="top-menu">
+                <!-- <div class="section text">
+                <span id="title-text">Environment Layer - </span><span>API v4.21</span>
+            </div> -->
+
+                <span class="separator"></span>
+
+                <div class="section">
+                    <select id="basemap-select">
+                        <option>satellite</option>
+                        <option selected="selected">dark-gray</option>
+                        <option>gray</option>
+                        <option>streets</option>
+                    </select>
+                </div>
+
+                <div class="section">
+                    <select id="data-select"></select>
+                </div>
+            </div>
+
+            <div id="report-container">
+                <!--             zoomI:
+            <span id="zoomI"></span> -->
+                Direction:
+                <span id="direction"></span>&deg; | Velocity:
+                <span id="speed"></span>
+                <!-- lat:
+            <span id="lat"></span>
+            |
+            lon:
+            <span id="lon"></span> -->
+            </div>
+        </div>
+    </body>
+</html>
